@@ -33,6 +33,7 @@ fn main() {
             kind: NoiseType::Perlin,
             x_offset: 0.,
             time_scale: 1.,
+            plane_subdivisions: 100,
         })
         .add_startup_system(setup)
         .add_system(modify_terrain)
@@ -49,6 +50,7 @@ struct NoiseConfig {
     kind: NoiseType,
     x_offset: f32,
     time_scale: f32,
+    plane_subdivisions: u32,
 }
 
 #[derive(PartialEq)]
@@ -137,6 +139,25 @@ fn modify_terrain(
             });
         }
 
+        ui.horizontal(|ui| {
+            ui.label("Plane Subdivisions");
+            if ui
+                .add(egui::Slider::new(
+                    &mut noise_config.plane_subdivisions,
+                    0..=1000,
+                ))
+                .changed()
+            {
+                query.iter().for_each(|(_q, e, _)| {
+                    let meesh = meshes.add(Mesh::from(shape::Plane {
+                        size: 10.,
+                        subdivisions: noise_config.plane_subdivisions,
+                    }));
+                    commands.entity(e).remove::<Handle<Mesh>>().insert(meesh);
+                });
+            }
+        });
+
         // let mut _scale = *scale;
         // ui.add(egui::Slider::new(&mut _scale, 0.1f32..=1.0f32));
         // *scale = _scale;
@@ -214,6 +235,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
+    noise_config: Res<NoiseConfig>,
 ) {
     // commands.spawn(SpriteBundle {
     //     texture: asset_server.load("sandwich.png"),
@@ -260,7 +282,7 @@ fn setup(
             mesh: meshes.add(
                 shape::Plane {
                     size: 10.,
-                    subdivisions: 100,
+                    subdivisions: noise_config.plane_subdivisions,
                 }
                 .into(),
             ),
