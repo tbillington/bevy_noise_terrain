@@ -1,3 +1,6 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+
 use bevy::{
     pbr::wireframe::{Wireframe, WireframePlugin},
     prelude::*,
@@ -61,9 +64,10 @@ enum NoiseType {
 struct NoiseTexture(Handle<Image>);
 
 fn modify_terrain(
+    mut commands: Commands,
     time: Res<Time>,
     mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<&Handle<Mesh>, With<Terrain>>,
+    query: Query<(&Handle<Mesh>, Entity, Option<&Wireframe>), With<Terrain>>,
     mut contexts: EguiContexts,
     mut first: Local<bool>,
     mut noise_config: ResMut<NoiseConfig>,
@@ -123,6 +127,16 @@ fn modify_terrain(
             }
         });
 
+        if ui.button("Toggle Wireframe").clicked() {
+            query.iter().for_each(|(_, e, w)| {
+                if w.is_some() {
+                    commands.entity(e).remove::<Wireframe>();
+                } else {
+                    commands.entity(e).insert(Wireframe);
+                }
+            });
+        }
+
         // let mut _scale = *scale;
         // ui.add(egui::Slider::new(&mut _scale, 0.1f32..=1.0f32));
         // *scale = _scale;
@@ -162,11 +176,8 @@ fn modify_terrain(
             ]) as f32
                 * noise_config.magnitude;
 
-            // println!("{v}: {x}, {y}");
-
+            // shift 0.0..1.0 to 0..255
             let m = 255.;
-
-            // c[0] = 255;
 
             c[0] = (v * m) as u8;
             c[1] = (v * m) as u8;
@@ -174,10 +185,9 @@ fn modify_terrain(
             c[3] = 255;
         });
 
-    query.iter().for_each(|h| {
+    query.iter().for_each(|(h, _, _)| {
         if let Some(m) = meshes.get_mut(h) {
             if !*first {
-                // m.duplicate_vertices();
                 *first = true;
             }
 
@@ -193,7 +203,6 @@ fn modify_terrain(
                 });
             }
             compute_normals(m);
-            // m.compute_flat_normals();
         }
     });
 }
