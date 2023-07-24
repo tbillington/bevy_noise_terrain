@@ -142,10 +142,10 @@ fn modify_terrain(
         ui.horizontal(|ui| {
             ui.label("Plane Subdivisions");
             if ui
-                .add(egui::Slider::new(
-                    &mut noise_config.plane_subdivisions,
-                    0..=1000,
-                ))
+                .add(
+                    egui::Slider::new(&mut noise_config.plane_subdivisions, 0..=1000)
+                        .logarithmic(true),
+                )
                 .changed()
             {
                 query.iter().for_each(|(_q, e, _)| {
@@ -215,7 +215,39 @@ fn modify_terrain(
             if let Some(bevy::render::mesh::VertexAttributeValues::Float32x3(ref mut v)) =
                 m.attribute_mut(Mesh::ATTRIBUTE_POSITION)
             {
-                v.iter_mut().for_each(|v| {
+                let l = (v.len() as f32).sqrt().round() as i32 - 2;
+                // println!("WxH {}", l);
+
+                // calcuate extents of the mesh
+                let mut min = Vec3::new(0., 0., 0.);
+                let mut max = Vec3::new(0., 0., 0.);
+                v.iter().for_each(|v| {
+                    let v = Vec3::new(v[0], v[1], v[2]);
+                    if v.x < min.x {
+                        min.x = v.x;
+                    }
+                    if v.y < min.y {
+                        min.y = v.y;
+                    }
+                    if v.z < min.z {
+                        min.z = v.z;
+                    }
+                    if v.x > max.x {
+                        max.x = v.x;
+                    }
+                    if v.y > max.y {
+                        max.y = v.y;
+                    }
+                    if v.z > max.z {
+                        max.z = v.z;
+                    }
+                });
+
+                // println!("min: {:?}\nmax: {:?}", min, max);
+
+                v.iter_mut().enumerate().for_each(|(i, v)| {
+                    // let x = (i % dim) as f32;
+                    // let y = (i / dim) as f32;
                     v[1] = noise_fn.get([
                         ((noise_config.x_offset + v[0]) * noise_config.scale) as f64,
                         (v[2] * noise_config.scale) as f64,
