@@ -19,6 +19,7 @@ build-wasm:
 build-wasm-release:
   cargo build --profile wasm-release --target wasm32-unknown-unknown --no-default-features
   wasm-bindgen --out-name bevy_simple_terrain --out-dir wasm --target web target/wasm32-unknown-unknown/wasm-release/bevy_simple_terrain.wasm
+  wasm-opt -Oz --output wasm/bevy_simple_terrain_bg.wasm wasm/bevy_simple_terrain_bg.wasm
 
 wasm-host:
   python3 -m http.server

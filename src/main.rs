@@ -2,31 +2,38 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::{
-    pbr::wireframe::{Wireframe, WireframePlugin},
+    pbr::wireframe::Wireframe,
     prelude::*,
     render::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        settings::{WgpuFeatures, WgpuSettings},
+        settings::WgpuSettings,
         RenderPlugin,
     },
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use noise::{Billow, Fbm, NoiseFn, Perlin, Seedable, Simplex, SuperSimplex, Worley};
-use rand::prelude::*;
+use noise::{Fbm, NoiseFn, Perlin, Simplex, SuperSimplex, Worley};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(RenderPlugin {
-            wgpu_settings: WgpuSettings {
-                features: WgpuFeatures::POLYGON_MODE_LINE,
-                ..default()
-            },
-        }))
-        // .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
-        // .add_plugin(bevy::diagnostic::LogDiagnosticsPlugin::default())
-        // .add_plugin(bevy::diagnostic::SystemInformationDiagnosticsPlugin::default())
-        .add_plugin(WireframePlugin)
-        .add_plugin(EguiPlugin)
+        .add_plugins((
+            DefaultPlugins
+                .set(RenderPlugin {
+                    wgpu_settings: WgpuSettings {
+                        // doesn't work in wasm
+                        // features: WgpuFeatures::POLYGON_MODE_LINE,
+                        ..default()
+                    },
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        canvas: Some(".bevy-canvas-target".into()),
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    }),
+                    ..default()
+                }),
+            EguiPlugin,
+        ))
         .insert_resource(NoiseConfig {
             scale: 0.8,
             magnitude: 0.3,
@@ -35,8 +42,8 @@ fn main() {
             time_scale: 1.,
             plane_subdivisions: 100,
         })
-        .add_startup_system(setup)
-        .add_system(modify_terrain)
+        .add_systems(Startup, setup)
+        .add_systems(Update, modify_terrain)
         .run();
 }
 
@@ -76,8 +83,6 @@ fn modify_terrain(
     nt: Res<NoiseTexture>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    // let mut rng = rand::thread_rng();
-
     let mut changed = false;
 
     egui::Window::new("Noise").show(contexts.ctx_mut(), |ui| {
@@ -88,10 +93,10 @@ fn modify_terrain(
         ui.radio_value(
             &mut noise_config.kind,
             NoiseType::SuperSimplex,
-            "SuperSimple",
+            "SuperSimplex",
         );
         ui.radio_value(&mut noise_config.kind, NoiseType::Worley, "Worley");
-        ui.radio_value(&mut noise_config.kind, NoiseType::Fbm, "Fbm");
+        ui.radio_value(&mut noise_config.kind, NoiseType::Fbm, "Fbm (Perlin)");
 
         ui.horizontal(|ui| {
             ui.label("Scale");
@@ -129,15 +134,15 @@ fn modify_terrain(
             }
         });
 
-        if ui.button("Toggle Wireframe").clicked() {
-            query.iter().for_each(|(_, e, w)| {
-                if w.is_some() {
-                    commands.entity(e).remove::<Wireframe>();
-                } else {
-                    commands.entity(e).insert(Wireframe);
-                }
-            });
-        }
+        // if ui.button("Toggle Wireframe").clicked() {
+        //     query.iter().for_each(|(_, e, w)| {
+        //         if w.is_some() {
+        //             commands.entity(e).remove::<Wireframe>();
+        //         } else {
+        //             commands.entity(e).insert(Wireframe);
+        //         }
+        //     });
+        // }
 
         ui.horizontal(|ui| {
             ui.label("Plane Subdivisions");
@@ -215,7 +220,7 @@ fn modify_terrain(
             if let Some(bevy::render::mesh::VertexAttributeValues::Float32x3(ref mut v)) =
                 m.attribute_mut(Mesh::ATTRIBUTE_POSITION)
             {
-                let l = (v.len() as f32).sqrt().round() as i32 - 2;
+                // let l = (v.len() as f32).sqrt().round() as i32 - 2;
                 // println!("WxH {}", l);
 
                 // calcuate extents of the mesh
@@ -245,7 +250,7 @@ fn modify_terrain(
 
                 // println!("min: {:?}\nmax: {:?}", min, max);
 
-                v.iter_mut().enumerate().for_each(|(i, v)| {
+                v.iter_mut().for_each(|v| {
                     // let x = (i % dim) as f32;
                     // let y = (i / dim) as f32;
                     v[1] = noise_fn.get([
@@ -265,7 +270,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    // asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
     noise_config: Res<NoiseConfig>,
 ) {
@@ -294,19 +299,36 @@ fn setup(
 
     commands.insert_resource(NoiseTexture(h.clone()));
 
-    commands.spawn(ImageBundle {
-        image: h.into(),
-        style: Style {
-            // align_content: AlignContent::Center,
-            // align_items: AlignItems::Center,
-            // display: Display::Flex,
-            // flex_direction: FlexDirection::Row,
-            // justify_content: JustifyContent::Center,
-            size: Size::new(Val::Px(width as f32), Val::Px(height as f32)),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                display: Display::Flex,
+                justify_content: JustifyContent::FlexEnd,
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    });
+        })
+        .with_children(|p| {
+            p.spawn(ImageBundle {
+                image: h.into(),
+                style: Style {
+                    align_content: AlignContent::End,
+                    align_items: AlignItems::End,
+                    display: Display::Flex,
+
+                    // flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::End,
+                    width: Val::Px(width as f32),
+                    height: Val::Px(height as f32),
+                    right: Val::Px(0.),
+                    // size: Size::new(Val::Px(width as f32), Val::Px(height as f32)),
+                    ..default()
+                },
+                ..default()
+            });
+        });
 
     // plane
     commands.spawn((
@@ -319,7 +341,7 @@ fn setup(
                 .into(),
             ),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-            // transform: Transform::from_xyz(0., 0., 0.),
+            transform: Transform::from_xyz(0., 0., 0.),
             ..default()
         },
         Terrain,
@@ -359,10 +381,30 @@ fn setup(
     // });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn((
+            Camera3dBundle {
+                camera: Camera {
+                    hdr: true,
+                    ..default()
+                },
+                transform: Transform::from_xyz(-5.0, 8.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+                ..default()
+            },
+            FogSettings {
+                color: Color::rgba(0.1, 0.2, 0.4, 1.0),
+                directional_light_color: Color::rgba(1.0, 0.95, 0.75, 0.5),
+                directional_light_exponent: 30.0,
+                falloff: FogFalloff::from_visibility_colors(
+                    35.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
+                    Color::rgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
+                    Color::rgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
+                ),
+            },
+        ))
+        // .insert(ScreenSpaceAmbientOcclusionBundle::default())
+        // .insert(TemporalAntiAliasBundle::default())
+        ;
 }
 
 // fn build_terrain() -> Mesh {
@@ -462,3 +504,12 @@ fn compute_normals(msh: &mut Mesh) {
         }
     }
 }
+
+// for someone on bevy discord
+// fn do_image_things(
+//     mut images: ResMut<Assets<Image>>,
+// ) {
+//     let my_image_handle: Handle<Image> = ...;
+//     let texture = images.get_mut(&my_image_handle).unwrap();
+//     let mut texture_data: Vec<u8> = texture.data;
+// }

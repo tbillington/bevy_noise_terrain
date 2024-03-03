@@ -15,22 +15,26 @@ codegen-units = 1
 
 [profile.wasm-release]
 inherits = "release"
-lto = "fat"
 
 [dependencies]
-bevy = { version = "0.10.1", default-features = false, features = [
+bevy = { version = "0.11.0", default-features = false, features = [
   "bevy_asset",
   "bevy_core_pipeline",
   "bevy_pbr",
-  "png",
+  # "png",
   "bevy_render",
   "bevy_sprite",
   "bevy_ui",
   "bevy_winit",
+  "tonemapping_luts",
+  "ktx2",
+  "zstd",
+  "multi-threaded",
+  "webgl2",
 ] }
-bevy_egui = "0.20.3"
+bevy_egui = "0.21"
 noise = "0.8.2"
-rand = "0.8.5"
+# rand = "0.8.5"
 
 [features]
 default = ["fast-compile"]
